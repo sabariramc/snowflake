@@ -17,10 +17,10 @@ type Snowflake struct {
 	lock           sync.Mutex
 	lastTs         int64
 	maxSequence    int64
+	maxTimestamp   int64
+	timestampShift int64
 	c              Config
 }
-
-const maxTimestamp int64 = 0x1FFFFFFFFFF
 
 func calculateMaxForMask(v int) int64 {
 	if v > 63 || v <= 0 {
@@ -39,7 +39,7 @@ func New(options ...Options) (*Snowflake, error) {
 	for _, fu := range options {
 		fu(&config)
 	}
-	if config.machineIdMask+config.sequenceIdMask != 22 || config.sequenceIdMask == 0 || config.machineIdMask == 0 {
+	if config.machineIdMask+config.sequenceIdMask+uint8(config.timestampMask) != 63 || config.sequenceIdMask == 0 || config.machineIdMask == 0 || config.timestampMask == 0 {
 		return nil, fmt.Errorf("invalid mask config for Snowflake")
 	}
 	if config.epoch > time.Now().UnixMilli() {
@@ -56,6 +56,8 @@ func New(options ...Options) (*Snowflake, error) {
 		machineID:      config.machineId << int64(config.sequenceIdMask),
 		sequenceNumber: config.sequenceNo,
 		maxSequence:    maxSequence,
+		maxTimestamp:   calculateMaxForMask(int(config.timestampMask)),
+		timestampShift: int64(config.machineIdMask + config.sequenceIdMask),
 		c:              config,
 	}, nil
 }
@@ -69,7 +71,7 @@ func (s *Snowflake) Stats() (int64, int64) {
 func (s *Snowflake) GenerateID() ID {
 	var sequenceNumber int64
 	s.lock.Lock()
-	ts := time.Now().UnixMilli() - s.c.epoch
+	ts := time.Now().UnixMilli()
 	if s.sequenceNumber > s.maxSequence {
 		s.sequenceNumber = 0
 		for ts == s.lastTs {
@@ -80,8 +82,9 @@ func (s *Snowflake) GenerateID() ID {
 	s.sequenceNumber++
 	s.lastTs = ts
 	s.lock.Unlock()
-	if ts > maxTimestamp {
+	ts -= s.c.epoch
+	if ts > s.maxTimestamp {
 		panic("timestamp exceed max limit")
 	}
-	return ID(ts<<22 | s.machineID | sequenceNumber)
+	return ID(ts<<s.timestampShift | s.machineID | sequenceNumber)
 }

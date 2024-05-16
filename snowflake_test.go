@@ -61,6 +61,17 @@ func TestSnowflake(t *testing.T) {
 	}
 }
 
+func TestTimestampMask(t *testing.T) {
+	cnt := 4097
+	idList := make([]snowflake.ID, cnt)
+	s, _ := snowflake.New(snowflake.WithTimestampMask(43), snowflake.WithMachineIdMask(8), snowflake.WithEpoch(time.Now()))
+	for i := 0; i < cnt; i++ {
+		idList[i] = s.GenerateID()
+	}
+	assert.Equal(t, idList[0], snowflake.ID(0x1000))
+	assert.Equal(t, idList[cnt-1], snowflake.ID(0x101000))
+}
+
 func TestSnowflakeTimer(t *testing.T) {
 	s, err := snowflake.New()
 	assert.NilError(t, err)

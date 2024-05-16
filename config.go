@@ -6,6 +6,7 @@ type Config struct {
 	epoch          int64
 	machineIdMask  uint8
 	sequenceIdMask uint8
+	timestampMask  int64
 	machineId      int64
 	sequenceNo     int64
 }
@@ -14,6 +15,7 @@ var defaultConfig = Config{
 	epoch:          0,
 	machineIdMask:  10,
 	sequenceIdMask: 12,
+	timestampMask:  41,
 	machineId:      1,
 	sequenceNo:     0,
 }
@@ -36,6 +38,12 @@ func WithMachineIdMask(m uint8) Options {
 func WithSequenceIdMask(m uint8) Options {
 	return func(c *Config) {
 		c.sequenceIdMask = m
+	}
+}
+
+func WithTimestampMask(m uint8) Options {
+	return func(c *Config) {
+		c.timestampMask = int64(m)
 	}
 }
 
