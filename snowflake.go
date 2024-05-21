@@ -1,6 +1,5 @@
-// Package snowflake is a implement of [snowflake]
-//
-// [snowflake]: https://en.wikipedia.org/wiki/Snowflake_ID
+// Package snowflake implements a generator for unique snowflake IDs.
+// For more information on snowflake IDs, refer to: https://en.wikipedia.org/wiki/Snowflake_ID
 package snowflake
 
 import (
@@ -9,8 +8,10 @@ import (
 	"time"
 )
 
+// ID represents a snowflake ID.
 type ID int64
 
+// Snowflake is a structure that holds the configuration and state of a snowflake ID generator.
 type Snowflake struct {
 	machineID      int64
 	sequenceNumber int64
@@ -22,6 +23,7 @@ type Snowflake struct {
 	c              Config
 }
 
+// calculateMaxForMask calculates the maximum value for a given bit mask.
 func calculateMaxForMask(v int) int64 {
 	if v > 63 || v <= 0 {
 		return -1
@@ -34,40 +36,43 @@ func calculateMaxForMask(v int) int64 {
 	return int64(res)
 }
 
+// New creates a new Snowflake instance with the provided options.
 func New(options ...Options) (*Snowflake, error) {
 	config := defaultConfig
 	for _, fu := range options {
 		fu(&config)
 	}
-	if config.machineIdMask+config.sequenceIdMask+uint8(config.timestampMask) != 63 || config.sequenceIdMask == 0 || config.machineIdMask == 0 || config.timestampMask == 0 {
+	if config.MachineIdMask+config.SequenceIdMask+uint8(config.TimestampMask) != 63 || config.SequenceIdMask == 0 || config.MachineIdMask == 0 || config.TimestampMask == 0 {
 		return nil, fmt.Errorf("invalid mask config for Snowflake")
 	}
-	if config.epoch > time.Now().UnixMilli() {
+	if config.Epoch > time.Now().UnixMilli() {
 		return nil, fmt.Errorf("invalid epoch config for Snowflake")
 	}
-	maxSequence := calculateMaxForMask(int(config.sequenceIdMask))
-	if config.machineId > calculateMaxForMask(int(config.machineIdMask)) {
+	maxSequence := calculateMaxForMask(int(config.SequenceIdMask))
+	if config.MachineId > calculateMaxForMask(int(config.MachineIdMask)) {
 		return nil, fmt.Errorf("invalid maxMachineId config for Snowflake")
 	}
-	if config.sequenceNo > maxSequence {
+	if config.SequenceNo > maxSequence {
 		return nil, fmt.Errorf("invalid sequenceNo config for Snowflake")
 	}
 	return &Snowflake{
-		machineID:      config.machineId << int64(config.sequenceIdMask),
-		sequenceNumber: config.sequenceNo,
+		machineID:      config.MachineId << int64(config.SequenceIdMask),
+		sequenceNumber: config.SequenceNo,
 		maxSequence:    maxSequence,
-		maxTimestamp:   calculateMaxForMask(int(config.timestampMask)),
-		timestampShift: int64(config.machineIdMask + config.sequenceIdMask),
+		maxTimestamp:   calculateMaxForMask(int(config.TimestampMask)),
+		timestampShift: int64(config.MachineIdMask + config.SequenceIdMask),
 		c:              config,
 	}, nil
 }
 
+// Stats returns the current machine ID and sequence number of the Snowflake instance.
 func (s *Snowflake) Stats() (int64, int64) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.c.machineId, s.sequenceNumber
+	return s.c.MachineId, s.sequenceNumber
 }
 
+// GenerateID generates a new snowflake ID based on the current timestamp, machine ID, and sequence number.
 func (s *Snowflake) GenerateID() ID {
 	var sequenceNumber int64
 	s.lock.Lock()
@@ -82,9 +87,9 @@ func (s *Snowflake) GenerateID() ID {
 	s.sequenceNumber++
 	s.lastTs = ts
 	s.lock.Unlock()
-	ts -= s.c.epoch
+	ts -= s.c.Epoch
 	if ts > s.maxTimestamp {
-		panic("timestamp exceed max limit")
+		panic("timestamp exceeds max limit")
 	}
 	return ID(ts<<s.timestampShift | s.machineID | sequenceNumber)
 }
